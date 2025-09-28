@@ -4,6 +4,14 @@ import { db } from "@/lib/db"
 
 export async function GET(request: NextRequest) {
   try {
+    // Check if Firebase is initialized
+    if (!firebaseAuth) {
+      return NextResponse.json(
+        { error: "Authentication service unavailable" },
+        { status: 503 }
+      )
+    }
+
     const currentUser = firebaseAuth.getCurrentUser()
 
     if (!currentUser || !currentUser.email) {

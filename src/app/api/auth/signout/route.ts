@@ -3,6 +3,14 @@ import { firebaseAuth } from "@/lib/firebase"
 
 export async function POST(request: NextRequest) {
   try {
+    // Check if Firebase is initialized
+    if (!firebaseAuth) {
+      return NextResponse.json(
+        { error: "Authentication service unavailable" },
+        { status: 503 }
+      )
+    }
+
     await firebaseAuth.signOut()
     
     // Clear any session cookies

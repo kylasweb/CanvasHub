@@ -14,6 +14,11 @@ const getFirebaseConfig = () => {
 
   // Check if all required Firebase config values are present
   if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) {
+    // During build time, don't throw error - just return null config
+    if (typeof window === 'undefined' && process.env.NODE_ENV === 'production') {
+      console.warn('Firebase configuration missing during build. This is expected and will be resolved at runtime.');
+      return null;
+    }
     throw new Error('Missing Firebase configuration. Please check your environment variables.');
   }
 
@@ -36,6 +41,13 @@ let storage: any = null;
 const initializeFirebase = () => {
   try {
     const firebaseConfig = getFirebaseConfig();
+
+    // If config is null (during build time), skip initialization
+    if (!firebaseConfig) {
+      console.warn('Firebase initialization skipped - configuration not available');
+      return;
+    }
+
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);

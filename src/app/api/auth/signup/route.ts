@@ -12,6 +12,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if Firebase is initialized
+    if (!firebaseAuth || !firestoreService) {
+      return NextResponse.json(
+        { error: "Authentication service unavailable" },
+        { status: 503 }
+      )
+    }
+
     // Create Firebase user
     const userCredential = await firebaseAuth.signUp(email, password)
     const user = userCredential.user
