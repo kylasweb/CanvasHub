@@ -4,20 +4,68 @@ import { getFirestore, collection, doc, setDoc, getDoc, getDocs, query, where, T
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+const getFirebaseConfig = () => {
+  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const storageBucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+  const messagingSenderId = process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
+  const appId = process.env.NEXT_PUBLIC_FIREBASE_APP_ID;
+
+  // Check if all required Firebase config values are present
+  if (!apiKey || !authDomain || !projectId || !storageBucket || !messagingSenderId || !appId) {
+    throw new Error('Missing Firebase configuration. Please check your environment variables.');
+  }
+
+  return {
+    apiKey,
+    authDomain,
+    projectId,
+    storageBucket,
+    messagingSenderId,
+    appId
+  };
+};
+
+// Lazy initialization of Firebase app
+let app: any = null;
+let auth: any = null;
+let db: any = null;
+let storage: any = null;
+
+const initializeFirebase = () => {
+  if (typeof window === 'undefined') {
+    // Server-side: only initialize if we have all required config
+    try {
+      const firebaseConfig = getFirebaseConfig();
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      storage = getStorage(app);
+    } catch (error) {
+      console.warn('Firebase initialization skipped:', error instanceof Error ? error.message : 'Unknown error');
+      // Return null values to prevent crashes
+      return {
+        app: null,
+        auth: null,
+        db: null,
+        storage: null
+      };
+    }
+  } else {
+    // Client-side: initialize normally
+    const firebaseConfig = getFirebaseConfig();
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+  }
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const storage = getStorage(app);
+initializeFirebase();
+
+export { auth, db, storage };
 
 // Authentication services
 export const firebaseAuth = {
