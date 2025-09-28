@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Create a session token
     const sessionToken = `session_${user.uid}_${Date.now()}`
-    
+
     // Create response with session cookie
     const response = NextResponse.json({
       success: true,
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         role: 'user'
       }
     })
-    
+
     // Set session cookie
     response.cookies.set('auth-token', sessionToken, {
       httpOnly: true,
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/'
     })
-    
+
     return response
   } catch (error: any) {
     console.error("Sign up error:", error)

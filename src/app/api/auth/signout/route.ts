@@ -12,11 +12,11 @@ export async function POST(request: NextRequest) {
     }
 
     await firebaseAuth.signOut()
-    
+
     // Clear any session cookies
     const response = NextResponse.json({ success: true })
     response.cookies.set('auth-token', '', { expires: new Date(0) })
-    
+
     return response
   } catch (error: any) {
     console.error("Sign out error:", error)
