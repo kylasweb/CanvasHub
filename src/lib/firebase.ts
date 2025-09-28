@@ -86,7 +86,7 @@ export const firebaseAuth = {
   onAuthStateChanged: (callback: (user: FirebaseUser | null) => void) => {
     if (!auth) {
       console.warn('Firebase Auth is not initialized. Auth state changes will not be monitored.');
-      return () => {}; // Return a no-op unsubscribe function
+      return () => { }; // Return a no-op unsubscribe function
     }
     return onAuthStateChanged(auth, callback);
   },
