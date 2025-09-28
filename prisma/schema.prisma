@@ -1,0 +1,1513 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Management Models
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  phone         String?
+  avatar        String?
+  role          UserRole   @default(USER)
+  status        UserStatus @default(ACTIVE)
+  emailVerified Boolean    @default(false)
+  tenantId      String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  lastLoginAt   DateTime?
+  password      String?
+
+  // NextAuth specific fields
+  emailVerificationToken String?
+  resetPasswordToken     String?
+  resetPasswordExpires   DateTime?
+
+  // Relations
+  clientProfiles      ClientProfile[]
+  projects            Project[]
+  invoices            Invoice[]
+  subscriptions       Subscription[]
+  userSettings        UserSettings?
+  activityLogs        ActivityLog[]
+  projectMembers      ProjectMember[]
+  taskAssignees       Task[]
+  timeEntries         TimeEntry[]
+  featureAccess       UserFeatureAccess[]
+  saasUsage           SaaSUsage[]
+  visitingCards       VirtualVisitingCard[]
+  webDesigns          WebDesign[]
+  onboarding          UserOnboarding?
+  kycVerification     KYCVerification?      @relation("UserKYC")
+  reviewedKYCs        KYCVerification[]     @relation("KYCReviewer")
+  influencer          Influencer?
+  agencyMembers       AgencyMember[]
+  webDesignerProjects WebDesignerProject[]
+  webDesignerAssets   WebDesignerAsset[]
+  aiUsageLogs         AIUsageLog[]
+  aiFeedback          AIFeedback[]
+  aiPreferences       UserAIPreference?
+  notifications       Notification[]
+
+  // NextAuth relations
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+// NextAuth specific models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model ClientProfile {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  email     String
+  phone     String?
+  company   String?
+  address   String?
+  city      String?
+  state     String?
+  zip       String?
+  country   String?
+  tags      String? // JSON string of tags array
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects Project[]
+  invoices Invoice[]
+
+  @@map("client_profiles")
+}
+
+model UserSettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  language           String   @default("en")
+  timezone           String   @default("UTC")
+  notifications      Boolean  @default(true)
+  emailNotifications Boolean  @default(true)
+  pushNotifications  Boolean  @default(true)
+  theme              String   @default("light")
+  dateFormat         String   @default("MM/DD/YYYY")
+  timeFormat         String   @default("12h")
+  currency           String   @default("USD")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// Project Management Models
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  status      ProjectStatus   @default(PLANNING)
+  priority    ProjectPriority @default(MEDIUM)
+  startDate   DateTime?
+  endDate     DateTime?
+  dueDate     DateTime
+  progress    Int             @default(0)
+  budget      Float?
+  spent       Float           @default(0)
+  tags        String? // JSON string of tags array
+  notes       String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Foreign Keys
+  clientId String?
+  userId   String
+
+  // Relations
+  client         ClientProfile?  @relation(fields: [clientId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
+  tasks          Task[]
+  timeEntries    TimeEntry[]
+  projectMembers ProjectMember[]
+  files          ProjectFile[]
+
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        String    @id @default(cuid())
+  projectId String
+  userId    String
+  role      String    @default("member")
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id          String       @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus   @default(TODO)
+  priority    TaskPriority @default(MEDIUM)
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Foreign Keys
+  projectId  String
+  assigneeId String?
+
+  // Relations
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?   @relation(fields: [assigneeId], references: [id])
+
+  @@map("tasks")
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  description String?
+  hours       Float
+  date        DateTime
+  rate        Float?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Foreign Keys
+  projectId String
+  userId    String
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("time_entries")
+}
+
+model ProjectFile {
+  id         String   @id @default(cuid())
+  name       String
+  path       String
+  size       Int
+  type       String
+  uploadedAt DateTime @default(now())
+
+  // Foreign Keys
+  projectId String
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_files")
+}
+
+// Financial Models
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        @unique
+  amount        Float
+  currency      String        @default("USD")
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime
+  paidDate      DateTime?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Foreign Keys
+  clientId String
+  userId   String?
+
+  // Relations
+  client   ClientProfile @relation(fields: [clientId], references: [id])
+  user     User?         @relation(fields: [userId], references: [id])
+  payments Payment[]
+
+  @@map("invoices")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float
+  currency      String        @default("USD")
+  status        PaymentStatus @default(PENDING)
+  method        String?
+  transactionId String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Foreign Keys
+  invoiceId String
+
+  // Relations
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Subscription {
+  id                 String             @id @default(cuid())
+  userId             String
+  plan               SubscriptionPlan   @default(STARTER)
+  status             SubscriptionStatus @default(ACTIVE)
+  amount             Float
+  currency           String             @default("USD")
+  startedAt          DateTime           @default(now())
+  endedAt            DateTime?
+  cancelledAt        DateTime?
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  trialEnd           DateTime?
+  metadata           String? // JSON metadata
+
+  // SAAS Related Fields
+  saasPlanId    String?
+  saasTierId    String?
+  billingCycle  BillingCycle @default(MONTHLY)
+  nextBillingAt DateTime?
+  lastPaymentAt DateTime?
+  paymentMethod String?
+  autoRenew     Boolean      @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  saasPlan SaaSPlan? @relation(fields: [saasPlanId], references: [id])
+  saasTier SaaSTier? @relation(fields: [saasTierId], references: [id])
+
+  @@unique([userId])
+  @@map("subscriptions")
+}
+
+// Feature Management Models
+model Feature {
+  id           String          @id @default(cuid())
+  name         String
+  description  String
+  category     FeatureCategory
+  status       FeatureStatus   @default(ACTIVE)
+  enabled      Boolean         @default(true)
+  userRoles    String? // JSON string of roles array
+  pricingTier  PricingTier     @default(STARTER)
+  settings     String? // JSON settings
+  dependencies String? // JSON string of dependencies array
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // Relations
+  userAccess UserFeatureAccess[]
+
+  @@map("features")
+}
+
+model UserFeatureAccess {
+  id        String    @id @default(cuid())
+  userId    String
+  featureId String
+  enabled   Boolean   @default(true)
+  grantedAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  // Relations
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureId])
+  @@map("user_feature_access")
+}
+
+// SAAS Management Models
+model SaaSPlan {
+  id           String         @id @default(cuid())
+  name         String
+  description  String
+  price        Float
+  currency     String         @default("USD")
+  billingCycle BillingCycle   @default(MONTHLY)
+  features     String // JSON string of features array
+  limits       String // JSON string of limits object
+  status       SaaSPlanStatus @default(ACTIVE)
+  sortOrder    Int            @default(0)
+  isPopular    Boolean        @default(false)
+  trialDays    Int            @default(0)
+  setupFee     Float          @default(0)
+  metadata     String? // JSON metadata
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+  planFeatures  SaaSPlanFeature[]
+
+  @@map("saas_plans")
+}
+
+model SaaSFeature {
+  id          String              @id @default(cuid())
+  name        String
+  description String
+  category    SaaSFeatureCategory
+  type        SaaSFeatureType     @default(STANDARD)
+  value       String? // For numeric/string features
+  unit        String? // Unit of measurement (GB, users, etc.)
+  isUnlimited Boolean             @default(false)
+  isVisible   Boolean             @default(true)
+  sortOrder   Int                 @default(0)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relations
+  planFeatures SaaSPlanFeature[]
+  saasUsage    SaaSUsage[]
+
+  @@map("saas_features")
+}
+
+model SaaSPlanFeature {
+  id          String   @id @default(cuid())
+  planId      String
+  featureId   String
+  value       String? // Override default feature value
+  isUnlimited Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  plan    SaaSPlan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature SaaSFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@map("saas_plan_features")
+}
+
+model SaaSTier {
+  id           String         @id @default(cuid())
+  name         String
+  description  String
+  minUsers     Int            @default(1)
+  maxUsers     Int?
+  pricePerUser Float
+  currency     String         @default("USD")
+  features     String // JSON string of features array
+  status       SaaSTierStatus @default(ACTIVE)
+  sortOrder    Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@map("saas_tiers")
+}
+
+model SaaSUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  featureId String
+  value     Float    @default(0)
+  period    String // Format: YYYY-MM for monthly tracking
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature SaaSFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, featureId, period])
+  @@map("saas_usage")
+}
+
+model SaaSMetric {
+  id          String             @id @default(cuid())
+  name        String
+  description String
+  category    SaaSMetricCategory
+  value       Float
+  unit        String?
+  period      String // Format: YYYY-MM-DD
+  metadata    String? // JSON metadata
+  createdAt   DateTime           @default(now())
+
+  @@map("saas_metrics")
+}
+
+// Virtual Visiting Card Models
+model VirtualVisitingCard {
+  id           String                 @id @default(cuid())
+  userId       String
+  title        String?
+  company      String?
+  position     String?
+  email        String?
+  phone        String?
+  mobile       String?
+  website      String?
+  address      String?
+  city         String?
+  state        String?
+  zip          String?
+  country      String?
+  bio          String?
+  profileImage String?
+  coverImage   String?
+  socialLinks  String? // JSON string of social media links
+  customFields String? // JSON string of custom fields
+  theme        VisitingCardTheme      @default(MODERN)
+  layout       VisitingCardLayout     @default(STANDARD)
+  visibility   VisitingCardVisibility @default(PUBLIC)
+  status       VisitingCardStatus     @default(ACTIVE)
+  qrCode       String? // QR code image URL
+  slug         String?                @unique // Custom URL slug
+  views        Int                    @default(0)
+  lastViewedAt DateTime?
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+
+  // Relations
+  user          User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cardAnalytics VisitingCardAnalytics[]
+
+  @@map("virtual_visiting_cards")
+}
+
+model VisitingCardAnalytics {
+  id         String   @id @default(cuid())
+  cardId     String
+  ipAddress  String?
+  userAgent  String?
+  referrer   String?
+  location   String? // JSON string of location data
+  deviceType String?
+  viewedAt   DateTime @default(now())
+
+  // Relations
+  card VirtualVisitingCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@map("visiting_card_analytics")
+}
+
+// Web Designer Models
+model WebDesign {
+  id            String          @id @default(cuid())
+  userId        String
+  title         String
+  description   String?
+  type          WebDesignType   @default(LANDING_PAGE)
+  status        WebDesignStatus @default(DRAFT)
+  content       String // JSON content structure
+  styles        String // JSON styles configuration
+  assets        String? // JSON array of assets
+  publishedUrl  String?
+  previewUrl    String?
+  templateId    String?
+  tags          String? // JSON array of tags
+  seoSettings   String? // JSON SEO settings
+  analytics     String? // JSON analytics data
+  views         Int             @default(0)
+  isPublic      Boolean         @default(false)
+  allowIndexing Boolean         @default(true)
+  customDomain  String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  publishedAt   DateTime?
+
+  // Relations
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template      WebTemplate?         @relation(fields: [templateId], references: [id])
+  designAssets  WebDesignAsset[]
+  analyticsData WebDesignAnalytics[]
+
+  @@map("web_designs")
+}
+
+model WebTemplate {
+  id          String              @id @default(cuid())
+  name        String
+  description String
+  category    WebTemplateCategory
+  type        WebDesignType       @default(LANDING_PAGE)
+  thumbnail   String?
+  preview     String?
+  content     String // JSON template structure
+  styles      String // JSON default styles
+  isPremium   Boolean             @default(false)
+  isFeatured  Boolean             @default(false)
+  usageCount  Int                 @default(0)
+  tags        String? // JSON array of tags
+  status      WebTemplateStatus   @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  // Relations
+  designs WebDesign[]
+
+  @@map("web_templates")
+}
+
+model WebDesignAsset {
+  id          String       @id @default(cuid())
+  designId    String
+  name        String
+  type        WebAssetType
+  url         String
+  size        Int
+  mimeType    String
+  metadata    String? // JSON metadata
+  isOptimized Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+
+  // Relations
+  design WebDesign @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@map("web_design_assets")
+}
+
+model WebDesignAnalytics {
+  id              String   @id @default(cuid())
+  designId        String
+  ipAddress       String?
+  userAgent       String?
+  referrer        String?
+  location        String? // JSON location data
+  deviceType      String?
+  sessionDuration Int? // in seconds
+  bounceRate      Boolean  @default(true)
+  events          String? // JSON events data
+  viewedAt        DateTime @default(now())
+
+  // Relations
+  design WebDesign @relation(fields: [designId], references: [id], onDelete: Cascade)
+
+  @@map("web_design_analytics")
+}
+
+// KYC Verification Models
+model UserOnboarding {
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  step         OnboardingStep @default(PROFILE_SETUP)
+  completedAt  DateTime?
+  skippedSteps String? // JSON array of skipped steps
+  preferences  String? // JSON user preferences
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_onboarding")
+}
+
+model KYCVerification {
+  id               String              @id @default(cuid())
+  userId           String              @unique
+  status           KYCStatus           @default(PENDING)
+  verificationType KYCVerificationType @default(BASIC)
+  personalInfo     String? // JSON personal information
+  addressInfo      String? // JSON address information
+  documentInfo     String? // JSON document information
+  verificationData String? // JSON verification data
+  submittedAt      DateTime?
+  reviewedAt       DateTime?
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  rejectionReason  String?
+  reviewerId       String?
+  notes            String?
+  riskLevel        KYCRiskLevel        @default(LOW)
+  isVerified       Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  // Relations
+  user         User           @relation("UserKYC", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer     User?          @relation("KYCReviewer", fields: [reviewerId], references: [id])
+  kycDocuments KYCDocument[]
+  kycAnalytics KYCAnalytics[]
+
+  @@map("kyc_verifications")
+}
+
+model KYCDocument {
+  id            String          @id @default(cuid())
+  kycId         String
+  type          KYCDocumentType
+  fileName      String
+  filePath      String
+  fileSize      Int
+  mimeType      String
+  status        DocumentStatus  @default(PENDING)
+  extractedData String? // JSON extracted data
+  verifiedAt    DateTime?
+  notes         String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // Relations
+  kyc KYCVerification @relation(fields: [kycId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_documents")
+}
+
+model KYCAnalytics {
+  id        String   @id @default(cuid())
+  kycId     String
+  action    String // Type of action (view, submit, approve, reject, etc.)
+  ipAddress String?
+  userAgent String?
+  location  String? // JSON location data
+  metadata  String? // JSON additional metadata
+  timestamp DateTime @default(now())
+
+  // Relations
+  kyc KYCVerification @relation(fields: [kycId], references: [id], onDelete: Cascade)
+
+  @@map("kyc_analytics")
+}
+
+// System Models
+model ActivityLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  oldValues  String? // JSON
+  newValues  String? // JSON
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String
+  value       String
+  description String?
+  category    String
+  isSystem    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, category])
+  @@map("system_settings")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  MANAGER
+  USER
+  EDITOR
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+}
+
+enum FeatureCategory {
+  CLIENT_MANAGEMENT
+  PROJECT_WORKFLOW
+  PHOTO_STUDIO
+  ANALYTICS
+  FINANCIAL
+  SYSTEM
+}
+
+enum FeatureStatus {
+  ACTIVE
+  INACTIVE
+  BETA
+  DEVELOPMENT
+}
+
+enum PricingTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+  ALL
+}
+
+// SAAS Enums
+enum BillingCycle {
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  LIFETIME
+}
+
+enum SaaSPlanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+  DRAFT
+}
+
+enum SaaSFeatureCategory {
+  STORAGE
+  USERS
+  PROJECTS
+  API
+  SUPPORT
+  INTEGRATIONS
+  ANALYTICS
+  SECURITY
+  CUSTOMIZATION
+}
+
+enum SaaSFeatureType {
+  STANDARD
+  BOOLEAN
+  NUMERIC
+  TEXT
+  SELECT
+}
+
+enum SaaSTierStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum SaaSMetricCategory {
+  REVENUE
+  USERS
+  SUBSCRIPTIONS
+  USAGE
+  CHURN
+  CONVERSION
+  PERFORMANCE
+}
+
+// Virtual Visiting Card Enums
+enum VisitingCardTheme {
+  MODERN
+  CLASSIC
+  MINIMAL
+  PROFESSIONAL
+  CREATIVE
+  ELEGANT
+}
+
+enum VisitingCardLayout {
+  STANDARD
+  COMPACT
+  DETAILED
+  SIDEBAR
+  GRID
+}
+
+enum VisitingCardVisibility {
+  PUBLIC
+  PRIVATE
+  UNLISTED
+}
+
+enum VisitingCardStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+// Web Designer Enums
+enum WebDesignType {
+  LANDING_PAGE
+  PORTFOLIO
+  BLOG
+  ECOMMERCE
+  BUSINESS
+  PERSONAL
+  EVENT
+  SALES_PAGE
+}
+
+enum WebDesignStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  UNDER_REVIEW
+  NEEDS_CHANGES
+}
+
+enum WebTemplateCategory {
+  BUSINESS
+  PORTFOLIO
+  BLOG
+  ECOMMERCE
+  LANDING_PAGE
+  PERSONAL
+  EVENT
+  CREATIVE
+}
+
+enum WebTemplateStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum WebAssetType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  FONT
+  ICON
+  CSS
+  JAVASCRIPT
+  OTHER
+}
+
+// KYC Verification Enums
+enum OnboardingStep {
+  PROFILE_SETUP
+  EMAIL_VERIFICATION
+  PHONE_VERIFICATION
+  KYC_VERIFICATION
+  PREFERENCES_SETUP
+  COMPLETE
+}
+
+enum KYCStatus {
+  PENDING
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  EXPIRED
+  SUSPENDED
+}
+
+enum KYCVerificationType {
+  BASIC
+  STANDARD
+  ENHANCED
+  BUSINESS
+}
+
+enum KYCDocumentType {
+  ID_CARD
+  PASSPORT
+  DRIVERS_LICENSE
+  RESIDENCE_PERMIT
+  UTILITY_BILL
+  BANK_STATEMENT
+  TAX_DOCUMENT
+  BUSINESS_LICENSE
+  CERTIFICATE_OF_INCORPORATION
+  SELFIE
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  NEEDS_REVIEW
+}
+
+enum KYCRiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Influencer Management Enums
+enum InfluencerStatus {
+  ACTIVE
+  PENDING
+  SUSPENDED
+}
+
+enum InfluencerEventType {
+  CLICK
+  SIGNUP
+  CONVERSION
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+// Media Agency Management Enums
+enum AgencyTier {
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum AgencyMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum CampaignStatus {
+  ACTIVE
+  ARCHIVED
+  DRAFT
+}
+
+// Visual Web Designer Enums
+enum TemplateCategory {
+  BLOG
+  PORTFOLIO
+  ECOMMERCE
+  BUSINESS
+  PERSONAL
+  LANDING_PAGE
+  EVENT
+  CREATIVE
+}
+
+enum TemplateStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum WebDesignerProjectStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum WidgetType {
+  TEXT
+  IMAGE
+  BUTTON
+  FORM
+  GALLERY
+  VIDEO
+  MAP
+  SOCIAL_MEDIA
+  ECOMMERCE
+  NAVIGATION
+  CONTAINER
+  CUSTOM
+}
+
+enum WidgetStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ARCHIVED
+}
+
+enum AssetType {
+  IMAGE
+  VIDEO
+  FONT
+  DOCUMENT
+  AUDIO
+  OTHER
+}
+
+// Influencer Management Models
+model Influencer {
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  status         InfluencerStatus @default(PENDING)
+  trackingLink   String?          @unique
+  commissionRate Decimal          @default(0.10)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  metrics InfluencerMetric[]
+  payouts InfluencerPayout[]
+
+  @@map("influencers")
+}
+
+model InfluencerMetric {
+  id           String              @id @default(cuid())
+  influencerId String
+  eventType    InfluencerEventType
+  sourceIp     String?
+  eventData    String? // JSON data
+  timestamp    DateTime            @default(now())
+
+  // Relations
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@map("influencer_metrics")
+}
+
+model InfluencerPayout {
+  id            String       @id @default(cuid())
+  influencerId  String
+  amount        Decimal
+  status        PayoutStatus @default(PENDING)
+  payoutMethod  String?
+  transactionId String?
+  processedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Relations
+  influencer Influencer @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+
+  @@map("influencer_payouts")
+}
+
+// Media Agency Management Models
+model Agency {
+  id               String     @id @default(cuid())
+  agencyName       String
+  contactEmail     String     @unique
+  subscriptionTier AgencyTier @default(BASIC)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Relations
+  members AgencyMember[]
+  clients Client[]
+
+  @@map("agencies")
+}
+
+model AgencyMember {
+  id       String           @id @default(cuid())
+  agencyId String
+  userId   String
+  role     AgencyMemberRole @default(MEMBER)
+  joinedAt DateTime         @default(now())
+
+  // Relations
+  agency Agency @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([agencyId, userId])
+  @@map("agency_members")
+}
+
+model Client {
+  id         String   @id @default(cuid())
+  agencyId   String
+  clientName String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  agency    Agency     @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@map("clients")
+}
+
+model Campaign {
+  id           String         @id @default(cuid())
+  clientId     String
+  campaignName String
+  startDate    DateTime
+  endDate      DateTime?
+  status       CampaignStatus @default(DRAFT)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  // Relations
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("campaigns")
+}
+
+// Visual Web Designer Models
+model WebDesignerTemplate {
+  id              String           @id @default(cuid())
+  templateName    String
+  category        TemplateCategory
+  previewImageUrl String?
+  templateData    Json // Template structure and configuration
+  isPremium       Boolean          @default(false)
+  isFeatured      Boolean          @default(false)
+  usageCount      Int              @default(0)
+  status          TemplateStatus   @default(ACTIVE)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  projects WebDesignerProject[]
+
+  @@map("web_designer_templates")
+}
+
+model WebDesignerWidget {
+  id              String       @id @default(cuid())
+  widgetName      String
+  widgetType      WidgetType
+  widgetCode      String // Base HTML/CSS/JS for the widget
+  defaultSettings Json // Default configuration options
+  category        String? // Widget category for organization
+  isPremium       Boolean      @default(false)
+  status          WidgetStatus @default(ACTIVE)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("web_designer_widgets")
+}
+
+model WebDesignerProject {
+  id           String                   @id @default(cuid())
+  userId       String
+  projectName  String
+  siteData     Json // Flexible JSON structure storing page layout, widget configurations, and content
+  status       WebDesignerProjectStatus @default(DRAFT)
+  publishedUrl String?
+  templateId   String?
+  customDomain String?
+  hasUsedAI    Boolean                  @default(false) // Track if AI was used in this project
+  aiUsageCount Int                      @default(0) // Number of AI interactions for this project
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  publishedAt  DateTime?
+
+  // Relations
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template WebDesignerTemplate? @relation(fields: [templateId], references: [id])
+  assets   WebDesignerAsset[]
+
+  @@map("web_designer_projects")
+}
+
+model WebDesignerAsset {
+  id        String    @id @default(cuid())
+  userId    String
+  projectId String?
+  fileUrl   String
+  fileType  AssetType
+  fileName  String
+  fileSize  Int
+  mimeType  String
+  metadata  Json? // Additional file metadata
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project WebDesignerProject? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("web_designer_assets")
+}
+
+// AI-Powered Design Assistant Models
+model AIUsageLog {
+  id             String   @id @default(cuid())
+  userId         String
+  featureUsed    String // 'content_generation', 'layout_suggestion', 'color_palette', 'seo_optimization', 'image_enhancement'
+  inputData      Json // The user's input prompt or context
+  outputData     Json // The AI-generated output
+  timestamp      DateTime @default(now())
+  usageCost      Float    @default(0.0) // Cost associated with the API call
+  processingTime Int      @default(0) // Processing time in milliseconds
+
+  // Relations
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feedback AIFeedback?
+
+  @@map("ai_usage_logs")
+}
+
+model AIFeedback {
+  id        String   @id @default(cuid())
+  userId    String
+  logId     String   @unique // Links to the specific AI interaction
+  rating    Int // 1-5 rating system
+  comment   String? // User's written feedback
+  timestamp DateTime @default(now())
+
+  // Relations
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  aiLog AIUsageLog @relation(fields: [logId], references: [id], onDelete: Cascade)
+
+  @@map("ai_feedback")
+}
+
+model AIPromptTemplate {
+  id                 String   @id @default(cuid())
+  featureType        String // 'content_generation', 'layout_suggestion', 'color_palette', 'seo_optimization', 'image_enhancement'
+  industryType       String? // Optional industry targeting
+  websiteType        String? // Optional website type targeting
+  systemPrompt       String // The system prompt for the AI
+  userPromptTemplate String // Template for user prompts with placeholders
+  isActive           Boolean  @default(true)
+  usageCount         Int      @default(0)
+  successRate        Float? // Success rate based on feedback
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("ai_prompt_templates")
+}
+
+model UserAIPreference {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  preferredWritingStyle String? // 'formal', 'casual', 'professional', 'friendly'
+  preferredColorScheme  String? // 'vibrant', 'minimal', 'corporate', 'modern'
+  industryExpertise     String? // JSON array of industries user works with
+  avoidedSuggestions    String? // JSON array of suggestion types user dislikes
+  learningData          Json? // User's interaction patterns and preferences
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_ai_preferences")
+}
+
+model AIModelConfig {
+  id           String   @id @default(cuid())
+  modelName    String // Name of the AI model (e.g., 'gpt-4', 'claude-3', etc.)
+  version      String // Model version
+  parameters   Json // Model parameters (temperature, maxTokens, etc.)
+  costPerToken Float    @default(0.0) // Cost per token for this model
+  isActive     Boolean  @default(true)
+  maxTokens    Int      @default(4000) // Maximum tokens for this model
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("ai_model_configs")
+}
+
+// Add AI-related fields to existing User model
+// (This would be added to the User model relations)
+// aiUsageLogs     AIUsageLog[]
+// aiFeedback      AIFeedback[]
+// aiPreferences   UserAIPreference?
+
+// Add AI-related fields to existing WebDesignerProject model
+// hasUsedAI      Boolean @default(false) // Track if AI was used in this project
+// aiUsageCount   Int     @default(0) // Number of AI interactions for this project
+
+// Notification System Models
+model Notification {
+  id             String               @id @default(cuid())
+  title          String
+  message        String
+  type           NotificationType
+  priority       NotificationPriority
+  channel        NotificationChannel
+  targetAudience String
+  status         NotificationStatus   @default(draft)
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  // Foreign Keys
+  createdById String
+
+  // Additional tracking fields
+  recipients String? // JSON string of recipient IDs
+  delivered  Int?    @default(0)
+  opened     Int?    @default(0)
+  clicked    Int?    @default(0)
+
+  // Relations
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@map("notifications")
+}
+
+// Notification Enums
+enum NotificationType {
+  info
+  warning
+  error
+  success
+}
+
+enum NotificationPriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum NotificationChannel {
+  email
+  sms
+  webhook
+  slack
+  in_app
+}
+
+enum NotificationStatus {
+  draft
+  scheduled
+  sent
+  failed
+}
+
+// AI Feature Enums
+enum AIFeatureType {
+  CONTENT_GENERATION
+  LAYOUT_SUGGESTION
+  COLOR_PALETTE_GENERATION
+  SEO_OPTIMIZATION
+  IMAGE_ENHANCEMENT
+  BATCH_PROCESSING
+  PERSONALIZED_SUGGESTIONS
+}
+
+enum AIWritingStyle {
+  FORMAL
+  CASUAL
+  PROFESSIONAL
+  FRIENDLY
+  TECHNICAL
+  CREATIVE
+}
+
+enum AIColorScheme {
+  VIBRANT
+  MINIMAL
+  CORPORATE
+  MODERN
+  EARTHY
+  PASTEL
+  MONOCHROME
+}
+
+enum AIStatus {
+  ACTIVE
+  INACTIVE
+  BETA
+  DEVELOPMENT
+  DEPRECATED
+}
