@@ -37,8 +37,11 @@ let app: any = null;
 let auth: any = null;
 let db: any = null;
 let storage: any = null;
+let initialized = false;
 
 const initializeFirebase = () => {
+  if (initialized) return; // Already initialized
+
   try {
     const firebaseConfig = getFirebaseConfig();
 
@@ -52,6 +55,8 @@ const initializeFirebase = () => {
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
+    initialized = true;
+    console.log('Firebase initialized successfully');
   } catch (error) {
     console.error('Firebase initialization failed:', error instanceof Error ? error.message : 'Unknown error');
     // In development, provide fallback values to prevent crashes
@@ -61,20 +66,22 @@ const initializeFirebase = () => {
       auth = null;
       db = null;
       storage = null;
+      initialized = false;
     } else {
       throw error; // Re-throw in production
     }
   }
 };
 
-// Initialize Firebase immediately
-initializeFirebase();
+// Remove immediate initialization - will be called lazily
+// initializeFirebase();
 
 export { app, auth, db, storage };
 
 // Authentication services
 export const firebaseAuth = {
   signIn: async (email: string, password: string) => {
+    initializeFirebase(); // Lazy initialization
     if (!auth) {
       throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
     }
@@ -82,6 +89,7 @@ export const firebaseAuth = {
   },
 
   signUp: async (email: string, password: string) => {
+    initializeFirebase(); // Lazy initialization
     if (!auth) {
       throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
     }
@@ -89,6 +97,7 @@ export const firebaseAuth = {
   },
 
   signOut: async () => {
+    initializeFirebase(); // Lazy initialization
     if (!auth) {
       throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
     }
@@ -96,6 +105,7 @@ export const firebaseAuth = {
   },
 
   onAuthStateChanged: (callback: (user: FirebaseUser | null) => void) => {
+    initializeFirebase(); // Lazy initialization
     if (!auth) {
       console.warn('Firebase Auth is not initialized. Auth state changes will not be monitored.');
       return () => { }; // Return a no-op unsubscribe function
@@ -104,6 +114,7 @@ export const firebaseAuth = {
   },
 
   getCurrentUser: () => {
+    initializeFirebase(); // Lazy initialization
     if (!auth) {
       return null;
     }
@@ -115,6 +126,10 @@ export const firebaseAuth = {
 export const firestoreService = {
   // Generic CRUD operations
   create: async (collectionName: string, data: any, docId?: string) => {
+    initializeFirebase(); // Lazy initialization
+    if (!db) {
+      throw new Error('Firebase Firestore is not initialized. Please check your Firebase configuration.');
+    }
     const docRef = docId ? doc(db, collectionName, docId) : doc(db, collectionName);
     await setDoc(docRef, {
       ...data,
@@ -125,12 +140,20 @@ export const firestoreService = {
   },
 
   read: async (collectionName: string, docId: string) => {
+    initializeFirebase(); // Lazy initialization
+    if (!db) {
+      throw new Error('Firebase Firestore is not initialized. Please check your Firebase configuration.');
+    }
     const docRef = doc(db, collectionName, docId);
     const docSnap = await getDoc(docRef);
     return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
   },
 
   readAll: async (collectionName: string, filters?: Array<{ field: string; operator: string; value: any }>) => {
+    initializeFirebase(); // Lazy initialization
+    if (!db) {
+      throw new Error('Firebase Firestore is not initialized. Please check your Firebase configuration.');
+    }
     let q: any = collection(db, collectionName);
 
     if (filters) {
@@ -144,6 +167,10 @@ export const firestoreService = {
   },
 
   update: async (collectionName: string, docId: string, data: any) => {
+    initializeFirebase(); // Lazy initialization
+    if (!db) {
+      throw new Error('Firebase Firestore is not initialized. Please check your Firebase configuration.');
+    }
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, {
       ...data,
@@ -153,6 +180,10 @@ export const firestoreService = {
 
   // Storage services
   uploadFile: async (path: string, file: File) => {
+    initializeFirebase(); // Lazy initialization
+    if (!storage) {
+      throw new Error('Firebase Storage is not initialized. Please check your Firebase configuration.');
+    }
     const storageRef = ref(storage, path);
     await uploadBytes(storageRef, file);
     return await getDownloadURL(storageRef);
