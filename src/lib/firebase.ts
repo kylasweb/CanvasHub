@@ -27,65 +27,74 @@ const getFirebaseConfig = () => {
   };
 };
 
-// Lazy initialization of Firebase app
+// Initialize Firebase
 let app: any = null;
 let auth: any = null;
 let db: any = null;
 let storage: any = null;
 
 const initializeFirebase = () => {
-  if (typeof window === 'undefined') {
-    // Server-side: only initialize if we have all required config
-    try {
-      const firebaseConfig = getFirebaseConfig();
-      app = initializeApp(firebaseConfig);
-      auth = getAuth(app);
-      db = getFirestore(app);
-      storage = getStorage(app);
-    } catch (error) {
-      console.warn('Firebase initialization skipped:', error instanceof Error ? error.message : 'Unknown error');
-      // Return null values to prevent crashes
-      return {
-        app: null,
-        auth: null,
-        db: null,
-        storage: null
-      };
-    }
-  } else {
-    // Client-side: initialize normally
+  try {
     const firebaseConfig = getFirebaseConfig();
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     storage = getStorage(app);
+  } catch (error) {
+    console.error('Firebase initialization failed:', error instanceof Error ? error.message : 'Unknown error');
+    // In development, provide fallback values to prevent crashes
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('Using fallback Firebase configuration for development');
+      app = null;
+      auth = null;
+      db = null;
+      storage = null;
+    } else {
+      throw error; // Re-throw in production
+    }
   }
 };
 
-// Initialize Firebase
+// Initialize Firebase immediately
 initializeFirebase();
 
-export { auth, db, storage };
+export { app, auth, db, storage };
 
 // Authentication services
 export const firebaseAuth = {
   signIn: async (email: string, password: string) => {
+    if (!auth) {
+      throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
+    }
     return await signInWithEmailAndPassword(auth, email, password);
   },
 
   signUp: async (email: string, password: string) => {
+    if (!auth) {
+      throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
+    }
     return await createUserWithEmailAndPassword(auth, email, password);
   },
 
   signOut: async () => {
+    if (!auth) {
+      throw new Error('Firebase Auth is not initialized. Please check your Firebase configuration.');
+    }
     return await signOut(auth);
   },
 
   onAuthStateChanged: (callback: (user: FirebaseUser | null) => void) => {
+    if (!auth) {
+      console.warn('Firebase Auth is not initialized. Auth state changes will not be monitored.');
+      return () => {}; // Return a no-op unsubscribe function
+    }
     return onAuthStateChanged(auth, callback);
   },
 
   getCurrentUser: () => {
+    if (!auth) {
+      return null;
+    }
     return auth.currentUser;
   }
 };
