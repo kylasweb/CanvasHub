@@ -23,6 +23,20 @@ cp .env.example .env
 DATABASE_URL="postgresql://username:password@host:5432/canvashub"
 NEXTAUTH_URL="https://yourdomain.com"
 NEXTAUTH_SECRET="your-secure-secret"
+
+# Firebase Configuration (Required)
+NEXT_PUBLIC_FIREBASE_API_KEY="your-firebase-api-key"
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN="ai-story-weaver-mdm45.firebaseapp.com"
+NEXT_PUBLIC_FIREBASE_PROJECT_ID="ai-story-weaver-mdm45"
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET="ai-story-weaver-mdm45.appspot.com"
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID="123456789"
+NEXT_PUBLIC_FIREBASE_APP_ID="1:123456789:web:abcdef123456"
+
+# Firebase Admin SDK (Required for server-side operations)
+FIREBASE_PROJECT_ID="ai-story-weaver-mdm45"
+FIREBASE_PRIVATE_KEY="your-firebase-private-key-here"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk-fbsvc@ai-story-weaver-mdm45.iam.gserviceaccount.com"
+
 SENTRY_DSN="your-sentry-dsn"
 NODE_ENV="production"
 ```
