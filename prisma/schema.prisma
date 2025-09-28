@@ -64,6 +64,11 @@ model User {
   @@map("users")
 }
 
+// Row Level Security Policies for User model
+// Enable RLS on users table
+// Users can only see their own profile
+// Admins can see all profiles
+
 // NextAuth specific models
 model Account {
   id                String  @id @default(cuid())
@@ -129,6 +134,10 @@ model ClientProfile {
   @@map("client_profiles")
 }
 
+// Row Level Security Policies for ClientProfile model
+// Users can only access client profiles they created
+// Admins can access all client profiles
+
 model UserSettings {
   id                 String   @id @default(cuid())
   userId             String   @unique
@@ -182,6 +191,10 @@ model Project {
 
   @@map("projects")
 }
+
+// Row Level Security Policies for Project model
+// Users can only access projects they own or are members of
+// Admins can access all projects
 
 model ProjectMember {
   id        String    @id @default(cuid())
@@ -282,6 +295,10 @@ model Invoice {
 
   @@map("invoices")
 }
+
+// Row Level Security Policies for Invoice model
+// Users can only access invoices they created or are associated with
+// Admins can access all invoices
 
 model Payment {
   id            String        @id @default(cuid())

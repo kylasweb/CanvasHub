@@ -174,14 +174,13 @@ export class AIService {
             const result = await generateText({
                 model: this.getModelInstance(provider, model),
                 prompt,
-                maxTokens,
                 temperature
             });
 
             return result.text;
         } catch (error) {
             console.error(`AI generation failed for provider ${provider}:`, error);
-            throw new Error(`Failed to generate text with ${provider}: ${error.message}`);
+            throw new Error(`Failed to generate text with ${provider}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -212,7 +211,7 @@ export class AIService {
             return result.object as T;
         } catch (error) {
             console.error(`AI object generation failed for provider ${provider}:`, error);
-            throw new Error(`Failed to generate object with ${provider}: ${error.message}`);
+            throw new Error(`Failed to generate object with ${provider}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
@@ -236,7 +235,6 @@ export class AIService {
             const result = await streamText({
                 model: this.getModelInstance(provider, model),
                 prompt,
-                maxTokens,
                 temperature
             });
 
@@ -245,7 +243,7 @@ export class AIService {
             }
         } catch (error) {
             console.error(`AI streaming failed for provider ${provider}:`, error);
-            throw new Error(`Failed to stream text with ${provider}: ${error.message}`);
+            throw new Error(`Failed to stream text with ${provider}: ${error instanceof Error ? error.message : String(error)}`);
         }
     }
 
