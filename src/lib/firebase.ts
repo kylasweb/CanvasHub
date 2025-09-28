@@ -5,12 +5,12 @@ import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCIo34O5T_i3eNc3OVXncy3AwCiEurHxw8",
-  authDomain: "ai-story-weaver-mdm45.firebaseapp.com",
-  projectId: "ai-story-weaver-mdm45",
-  storageBucket: "ai-story-weaver-mdm45.firebasestorage.app",
-  messagingSenderId: "344476205628",
-  appId: "1:344476205628:web:f301706d70cf663137f939"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
